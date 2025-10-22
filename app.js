@@ -103,3 +103,135 @@ app.get("/logout",(req,res)=>{
 
 
 app.listen(3000);
+
+import os
+import time
+import pandas as pd
+from datetime import datetime
+from google_play_scraper import app, search
+
+# ============================================
+# CONFIGURATION
+# ============================================
+TARGET_KEYWORD = "BNP Paribas"
+DATA_FILE = "bnp_apps_data.xlsx"
+LOG_FILE = "bnp_update_log.txt"
+
+# ============================================
+# FETCH APPS FUNCTION
+# ============================================
+def fetch_bnp_apps():
+    print("🔍 Searching Play Store for BNP Paribas apps...\n")
+
+    # Perform search (first 50 results)
+    results = search(TARGET_KEYWORD, lang="en", country="us")
+
+    if not results:
+        print("❌ No apps found.")
+        return []
+
+    app_data = []
+    for result in results:
+        try:
+            app_id = result["appId"]
+            details = app(app_id, lang="en", country="us")
+            app_data.append({
+                "App Name": details.get("title", ""),
+                "Package Name": app_id,
+                "Developer": details.get("developer", ""),
+                "Developer ID": details.get("developerId", ""),
+                "Developer Email": details.get("developerEmail", ""),
+                "Installs": details.get("installs", ""),
+                "Score": details.get("score", ""),
+                "Ratings": details.get("ratings", ""),
+                "Reviews": details.get("reviews", ""),
+                "Version": details.get("version", "Varies with device"),
+                "Released": details.get("released", ""),
+                "Updated": details.get("updated", ""),
+                "Compatibility": details.get("androidVersionText", ""),
+                "URL": f"https://play.google.com/store/apps/details?id={app_id}",
+                "Fetched At": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            })
+            print(f"✅ {details.get('title')} - {app_id}")
+        except Exception as e:
+            print(f"⚠️ Error fetching {result.get('title', 'Unknown app')}: {e}")
+            continue
+
+    print(f"\n✅ Total {len(app_data)} apps fetched.\n")
+    return app_data
+
+# ============================================
+# SAVE DATA FUNCTION
+# ============================================
+def save_to_excel(data):
+    df = pd.DataFrame(data)
+    df.to_excel(DATA_FILE, index=False)
+    print(f"💾 Data saved to {DATA_FILE}")
+
+# ============================================
+# COMPARE AND DETECT UPDATES
+# ============================================
+def compare_with_old_data(new_data):
+    if not os.path.exists(DATA_FILE):
+        print("🆕 No existing data found. Creating new Excel file.")
+        save_to_excel(new_data)
+        return
+
+    old_df = pd.read_excel(DATA_FILE)
+    new_df = pd.DataFrame(new_data)
+
+    updates = []
+    for _, new_row in new_df.iterrows():
+        old_row = old_df[old_df["Package Name"] == new_row["Package Name"]]
+        if not old_row.empty:
+            old_version = str(old_row.iloc[0]["Version"])
+            new_version = str(new_row["Version"])
+            if old_version != new_version:
+                updates.append({
+                    "App Name": new_row["App Name"],
+                    "Old Version": old_version,
+                    "New Version": new_version,
+                    "Updated": new_row["Updated"]
+                })
+
+    if updates:
+        print("\n🚨 Updates detected!\n")
+        with open(LOG_FILE, "a") as log:
+            for u in updates:
+                msg = (f"[{datetime.now()}] {u['App Name']} updated "
+                       f"from {u['Old Version']} → {u['New Version']} "
+                       f"on {u['Updated']}\n")
+                print(msg.strip())
+                log.write(msg)
+        print(f"📜 Update log saved to {LOG_FILE}")
+    else:
+        print("\n✅ No app version changes detected.\n")
+
+    # Save updated data
+    save_to_excel(new_data)
+
+# ============================================
+# AUTO RUN LOOP (every 30 days)
+# ============================================
+def auto_run():
+    while True:
+        print("\n===============================")
+        print(f"⏰ Running BNP App Tracker — {datetime.now()}")
+        print("===============================\n")
+
+        new_data = fetch_bnp_apps()
+        compare_with_old_data(new_data)
+
+        print("\n💤 Sleeping for 30 days before next check...\n")
+        time.sleep(30 * 24 * 60 * 60)  # 30 days in seconds
+
+# ============================================
+# MAIN EXECUTION
+# ============================================
+if __name__ == "__main__":
+    # First immediate run
+    new_data = fetch_bnp_apps()
+    compare_with_old_data(new_data)
+
+    # Optional: Uncomment next line to enable auto rerun
+    # auto_run()
