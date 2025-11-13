@@ -235,3 +235,107 @@ if __name__ == "__main__":
 
     # Optional: Uncomment next line to enable auto rerun
     # auto_run()
+//
+import os
+import time
+import pandas as pd
+from datetime import datetime
+import requests
+from bs4 import BeautifulSoup
+
+# ============================================
+# CONFIGURATION
+# ============================================
+TARGET_URL = "https://mobileobservatory.bnpparibas"
+DATA_FILE = "bnp_apps_data.xlsx"
+LOG_FILE = "bnp_update_log.txt"
+
+# ============================================
+# FETCH BNP OBSERVATORY DATA
+# ============================================
+def fetch_bnp_observatory_data():
+    print("🔍 Fetching data from BNP Paribas Mobile Observatory...\n")
+
+    response = requests.get(TARGET_URL)
+    if response.status_code != 200:
+        print(f"❌ Failed to load site (HTTP {response.status_code})")
+        return []
+
+    soup = BeautifulSoup(response.text, "html.parser")
+
+    # Example extraction: adjust these selectors based on page structure
+    app_data = []
+    apps = soup.select(".app-card, .some-selector")  # Replace with actual CSS selectors
+
+    for app in apps:
+        name = app.select_one(".app-title").get_text(strip=True) if app.select_one(".app-title") else "N/A"
+        developer = "BNP Paribas"
+        updated = datetime.now().strftime("%Y-%m-%d")
+        url = TARGET_URL
+
+        app_data.append({
+            "App Name": name,
+            "Developer": developer,
+            "Version": "N/A",
+            "Updated": updated,
+            "URL": url,
+            "Fetched At": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        })
+
+        print(f"✅ Found app: {name}")
+
+    print(f"\n✅ Total {len(app_data)} entries fetched.\n")
+    return app_data
+
+# ============================================
+# SAVE DATA FUNCTION
+# ============================================
+def save_to_excel(data):
+    df = pd.DataFrame(data)
+    df.to_excel(DATA_FILE, index=False)
+    print(f"💾 Data saved to {DATA_FILE}")
+
+# ============================================
+# COMPARE AND DETECT UPDATES
+# ============================================
+def compare_with_old_data(new_data):
+    if not os.path.exists(DATA_FILE):
+        print("🆕 No existing data found. Creating new Excel file.")
+        save_to_excel(new_data)
+        return
+
+    old_df = pd.read_excel(DATA_FILE)
+    new_df = pd.DataFrame(new_data)
+
+    updates = []
+    for _, new_row in new_df.iterrows():
+        old_row = old_df[old_df["App Name"] == new_row["App Name"]]
+        if not old_row.empty:
+            old_date = old_row.iloc[0]["Updated"]
+            if old_date != new_row["Updated"]:
+                updates.append({
+                    "App Name": new_row["App Name"],
+                    "Old Updated": old_date,
+                    "New Updated": new_row["Updated"]
+                })
+
+    if updates:
+        print("\n🚨 Updates detected!\n")
+        with open(LOG_FILE, "a") as log:
+            for u in updates:
+                msg = (f"[{datetime.now()}] {u['App Name']} updated "
+                       f"from {u['Old Updated']} → {u['New Updated']}\n")
+                print(msg.strip())
+                log.write(msg)
+        print(f"📜 Update log saved to {LOG_FILE}")
+    else:
+        print("\n✅ No updates detected.\n")
+
+    save_to_excel(new_data)
+
+# ============================================
+# MAIN EXECUTION
+# ============================================
+if __name__ == "__main__":
+    new_data = fetch_bnp_observatory_data()
+    compare_with_old_data(new_data)
