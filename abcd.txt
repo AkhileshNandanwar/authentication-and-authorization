@@ -38,6 +38,10 @@ This could easily be modified to:
 Establish a reverse shell
 
 Exfiltrate environment variables containing secrets
+React2Shell is a security vulnerability in React Server Components where unsafe handling of React Flight data allows attackers to inject malicious payloads.
+Due to improper validation of special symbols like $, $B, and $S, React may trust and execute attacker-controlled data.
+This can lead to remote code execution (RCE).
+As a result, attackers can run system commands, read files, and fully compromise the server.
 
 Read sensitive files
 
