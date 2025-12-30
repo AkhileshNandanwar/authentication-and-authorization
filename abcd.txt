@@ -1,0 +1,44 @@
+Stage 2: Exploiting the Blob Deserialization Handler
+
+The second critical component is the $B handler reference ($B1337)
+
+In React’s Flight protocol, the $B prefix indicates a Blob reference
+
+When React processes a Blob reference, it calls a function that internally uses:
+response._formData.get(response._prefix + id)
+
+Here’s where the exploitation becomes elegant:
+
+We’ve polluted the _response object with our malicious properties
+
+When the Blob handler executes:
+response._formData.get(response._prefix + id)
+
+It actually executes:
+Function("process.mainModule.require('child_process').execSync('xcalc');1337")
+
+Stage 3: Achieving Code Execution
+
+The payload process.mainModule.require('child_process').execSync('xcalc') demonstrates the power of this exploit
+
+We’re using Node.js’s module system to:
+
+Access process.mainModule (the main module being executed)
+
+Use its require method to load the child_process module
+
+Call execSync to execute an operating system command
+
+In this case:
+
+Launching the calculator application (xcalc) as proof of exploitation
+
+This could easily be modified to:
+
+Establish a reverse shell
+
+Exfiltrate environment variables containing secrets
+
+Read sensitive files
+
+Perform any operation the Node.js process has permissions to execute 
