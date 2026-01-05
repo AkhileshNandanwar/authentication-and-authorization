@@ -46,3 +46,5 @@ As a result, attackers can run system commands, read files, and fully compromise
 Read sensitive files
 
 Perform any operation the Node.js process has permissions to execute 
+
+The severity score for React2Shell (CVE-2025-55182) is 10.0, which is the maximum possible on the CVSS scale, indicating a critical severity level. This reflects the fact that the vulnerability allows unauthenticated remote code execution on affected servers and has a wide impact on React Server Components and frameworks like Next.js
