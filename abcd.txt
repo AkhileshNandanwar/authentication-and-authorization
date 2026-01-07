@@ -1,89 +1,177 @@
-Stage 2: Exploiting the Blob Deserialization Handler
+OPENING
+“Good morning everyone.
+Today, we’re going to talk about something that sits at the intersection of modern web development and security.
+The title of this presentation is ‘React2Shell: A Deep Dive into CVE-2025-55182.’
+Now, even if you’ve never heard of this vulnerability before, that’s perfectly okay—because by the end of this session, you’ll understand what it is, why it matters, and how a simple bug in a popular framework can lead all the way to remote code execution.
+React is one of the most widely used frontend frameworks in the world.
+It powers applications used by millions of users every single day.
+So when a vulnerability appears in something this foundational, the impact is not small—it’s massive.
 
-The second critical component is the $B handler reference ($B1337)
+INDEX
+“Before we dive into the technical details, let me quickly walk you through the agenda for today’s session.
+We’ll begin with a brief introduction to React, and then move into React Server Components and the Flight Protocol.
+This is important because React2Shell exists deep inside this internal communication layer, so understanding the basics will make everything else much clearer.
+Next, we’ll answer the most important question:
+What exactly is React2Shell?
+We’ll look at what this vulnerability is, why it was given a CVE, and what makes it particularly dangerous.
+After that, we’ll focus on the core vulnerability itself, which is unsafe deserialization.
+I’ll explain what deserialization means, how React uses it internally, and how an attacker can abuse it when proper validation is missing.
+To make this more concrete, we’ll go through a simple example that shows how malicious data can travel from the client to the server and trigger unintended behavior.
+Then we’ll ask: How bad can this really get?
+Here, we’ll explore the extent of exploitation, including how this vulnerability can escalate from a logic flaw to remote code execuion.
+Once we understand the impact, we’ll look at the affected React versions, the official fixes, and how organizations can detect vulnerable applications.
+Finally, we’ll wrap up with practical mitigations—what developers and security teams should do today to protect their applications and prevent similar issues in the future.
 
-In React’s Flight protocol, the $B prefix indicates a Blob reference
+SLIDE 3
+Before we talk about vulnerabilities, we need to understand what we are actually securing.
+Think of this like a bank vault system.
+Before we talk about how a robbery happened, we must first understand how the vault is designed, who has access, and how trust flows inside the system.
+In the same way, before discussing React2Shell, we need to understand how React moves data, where trust exists, and what assumptions are being made internally.
+Let’s start with React.
+React is a JavaScript library for building user interfaces.
+Instead of updating entire web pages, React updates only the parts of the UI that change, which makes applications fast, interactive, and scalable.
+Traditionally, React applications ran mostly in the browser, with the server responsible only for sending HTML or APIs.
+Now comes the next evolution: React Server Components, also known as RSC.
+React Server Components allow parts of a React application to run directly on the server instead of the browser.
+This means the server can:
+Fetch data securely
+Access databases and internal services
+Reduce the amount of JavaScript sent to the client
+But this also introduces a new trust boundary.
+The browser now depends on the server to send structured, serialized component data and not just plain HTML.
+This is where the Flight Protocol comes in.
+The React Flight Protocol is an internal communication protocol used by React to send Server Component data from the server to the client.
+Instead of sending normal HTML, the server sends a serialized data stream that describes which components to show, what data they use, and how they are connected.
+This serialized data uses special symbols, such as $, $S, and $B, as shortcodes to represent different types of objects and references.
+Under normal conditions, the browser reads this serialized data, deserializes it, and converts it back into real components to safely build the user interface on the screen.
+However—and this is the key idea—
+if this serialized data is not properly validated, it becomes a powerful attack surface.
+React2Shell exists in this exact layer, where the server assumes that the serialized data is always safe.
+Keep this architecture in mind, because in the next slide, we’ll see how attackers exploit this trust to break out of the React abstraction entirely.
 
-When React processes a Blob reference, it calls a function that internally uses:
+
+The core vulnerability
+“Now let’s break down the core vulnerability behind React2Shell: unsafe deserialization.
+To understand this, we first need to define serialization and deserialization in simple terms.
+Serialization
+Serialization means converting data into a form that can be sent or stored.
+Analogy:
+Think of serialization like packing clothes into a suitcase before traveling.
+You can’t carry the whole cupboard with you, so you neatly pack everything into a suitcase that can be transported.
+
+Deserialization
+Deserialization means taking that sent data and turning it back into something usable.
+Analogy:
+Deserialization is like unpacking the suitcase when you reach your destination and putting the clothes back into the cupboard so you can use them again.
+In React Server Components, the Flight protocol works by sending data instead of HTML.
+The server sends a packed (serialized) stream that explains which components to show, what data they use, and how they are connected.
+The React runtime then unpacks (deserializes) this data and rebuilds the components so they can be rendered.
+The vulnerability occurs when this deserialization process assumes the incoming data is safe and does not strictly validate what types of objects or references are allowed.
+In vulnerable versions, certain serialized markers such as internal references or handler identifiers—can be resolved dynamically during deserialization.
+This means attacker-controlled data can influence:
+•	Which internal objects are accessed
+•	Which functions are invoked
+•	How React’s internal state is reconstructed
+Instead of treating incoming data as untrusted input, the framework treats it as trusted internal instructions.
+This is what makes the issue dangerous.
+Deserialization does not just parse data—it can trigger behavior.
+When attackers control that behavior, they can move beyond data manipulation into logic manipulation.
+In the context of React2Shell, unsafe deserialization allows attackers to chain internal React handlers in unexpected ways.
+With the right payload, this can escalate from:
+•	Component reconstruction
+to
+•	Internal object access
+to
+•	Remote code execution on the server
+This is not a typical application-level bug.
+It’s a framework-level trust failure, which means many applications can be vulnerable without writing any insecure code themselves.
+In the next slide, we’ll look at a concrete example to see how this unsafe deserialization works in practice.
+
+EXAMPLE-STAGE 1
+Stage 1: Creating a Fake Chunk Object
+
+“Let’s now look at how the attack actually begins.”
+The exploit starts when the attacker sends a request to the server.
+But this is not a normal request.
+Instead of sending regular data, the attacker sends a multipart form request that contains multiple fields.
+One of these fields holds a carefully crafted object that pretends to be something React uses internally.
+This object is called a chunk.
+________________________________________
+What Is a Chunk?
+Inside React Server Components, React breaks its work into small internal objects called chunks.
+A chunk generally:
+•	Holds data
+•	Tracks whether the data is ready
+•	And defines what React should do once the data is available
+Normally, only React itself creates these chunks.
+React assumes:
+“If something looks like a chunk, it must be safe.”
+That assumption is the weakness.
+
+
+What the Attacker Does
+The attacker creates a fake chunk object that looks exactly like a real one.
+Because it follows the same structure React expects, React does not question it.
+One important property in this object is called then.
+In JavaScript, anything with a then property is treated like a Promise.
+So when React sees this object, it assumes:
+“This is a normal async React object. I can safely wait for it.”
+This is the entry point of the attack.
+React now starts running internal Promise-handling logic on attacker-controlled data.
+Stage 2: Abusing the Blob Deserialization Handler
+“Now we move to the heart of the exploit.”
+In React’s Flight protocol, certain markers are used to represent internal data types.
+One of these markers is $B, which represents a Blob reference.
+When React encounters a $B reference, it automatically calls an internal handler function to resolve it.
+Internally, that handler performs an operation similar to:
 response._formData.get(response._prefix + id)
-
-Here’s where the exploitation becomes elegant:
-
-We’ve polluted the _response object with our malicious properties
-
-When the Blob handler executes:
-response._formData.get(response._prefix + id)
-
-It actually executes:
+Here is where the attack becomes powerful.
+The attacker has already polluted the internal _response object:
+•	_formData.get is redirected to the JavaScript Function constructor
+•	_prefix is replaced with attacker-controlled JavaScript code
+So instead of safely retrieving data, React unknowingly executes:
 Function("process.mainModule.require('child_process').execSync('xcalc');1337")
+This converts data into executable code.
+At this moment, deserialization becomes code execution.
 
+
+STAGE 3
 Stage 3: Achieving Code Execution
+“Now we reach the final stage of the attack — actual code execution on the server.”
+At this point in the exploit, the attacker is no longer just confusing React or manipulating data.
+They are executing real commands on the server.
 
-The payload process.mainModule.require('child_process').execSync('xcalc') demonstrates the power of this exploit
+What Is This Payload Doing?
+The payload used in this example is:
+process.mainModule.require('child_process').execSync('xcalc')
 
-We’re using Node.js’s module system to:
-
-Access process.mainModule (the main module being executed)
-
-Use its require method to load the child_process module
-
-Call execSync to execute an operating system command
-
-In this case:
-
-Launching the calculator application (xcalc) as proof of exploitation
-
-This could easily be modified to:
-
-Establish a reverse shell
-
-Exfiltrate environment variables containing secrets
-React2Shell is a security vulnerability in React Server Components where unsafe handling of React Flight data allows attackers to inject malicious payloads.
-Due to improper validation of special symbols like $, $B, and $S, React may trust and execute attacker-controlled data.
-This can lead to remote code execution (RCE).
-As a result, attackers can run system commands, read files, and fully compromise the server.
-
-Read sensitive files
-
-Perform any operation the Node.js process has permissions to execute 
-
-The severity score for React2Shell (CVE-2025-55182) is 10.0, which is the maximum possible on the CVSS scale, indicating a critical severity level. This reflects the fact that the vulnerability allows unauthenticated remote code execution on affected servers and has a wide impact on React Server Components and frameworks like Next.js
-
-Affected Versions, Fix & Detection Approach
-Affected Versions
-
-react-server-dom-webpack: 19.0.0 – 19.2.0
-
-react-server-dom-parcel: 19.0.0 – 19.2.0
-
-react-server-dom-turbopack: 19.0.0 – 19.2.0
-
-Fix
-
-Upgrade to patched React releases
-
-Recommended mitigation tool:
-
-npx react2shell-next
-
-Detection Approach
-
-Dependency scanning
-
-Review package.json and lockfiles
-
-IOC-based request inspection
-
-Suspicious headers: Next-Action:*
-CVE - https://www.cve.org/CVERecord?id=CVE-2025-55182
-React Advisory - https://react.dev/blog/2025/12/03/critical-security-vulnerability-in-react-server-components 
-React2Shell - https://react2shell.com/ 
+process.mainModule refers to the main Node.js program that is currently running.
+This means the attacker is now interacting directly with the server process itself, not just the application code.
+________________________________________
+Step 2: Loading System-Level Capabilities
+Using require, the payload loads the child_process module.
+This is a built-in Node.js module that allows programs to:
+•	Run system commands
+•	Interact with the operating system
+This module is normally used for legitimate purposes — but here, it’s being abused.
+________________________________________
+Step 3: Executing an Operating System Command
+The execSync function executes an operating system command immediately.
+In this demonstration, the command is:
+xcalc
+Which simply opens the calculator application.
+This is a common proof-of-concept because:
+•	It clearly shows that the attacker’s code is running on the server
+With the same level of access, an attacker could:
+•	Open a reverse shell
+•	Steal environment variables that contain secrets
+•	Read sensitive configuration files
+•	Modify application code
+•	Take full control of the server
+Anything the Node.js process has permission to do, the attacker can now do as well.
 
 
-Payload patterns: $@N, resolved_model
 
-Function chains: constructor:constructor
 
-Dangerous access: _formData.get
 
-Node indicators: process.mainModule
+
