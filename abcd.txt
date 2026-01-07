@@ -48,3 +48,38 @@ Read sensitive files
 Perform any operation the Node.js process has permissions to execute 
 
 The severity score for React2Shell (CVE-2025-55182) is 10.0, which is the maximum possible on the CVSS scale, indicating a critical severity level. This reflects the fact that the vulnerability allows unauthenticated remote code execution on affected servers and has a wide impact on React Server Components and frameworks like Next.js
+
+Affected Versions, Fix & Detection Approach
+Affected Versions
+
+react-server-dom-webpack: 19.0.0 – 19.2.0
+
+react-server-dom-parcel: 19.0.0 – 19.2.0
+
+react-server-dom-turbopack: 19.0.0 – 19.2.0
+
+Fix
+
+Upgrade to patched React releases
+
+Recommended mitigation tool:
+
+npx react2shell-next
+
+Detection Approach
+
+Dependency scanning
+
+Review package.json and lockfiles
+
+IOC-based request inspection
+
+Suspicious headers: Next-Action:*
+
+Payload patterns: $@N, resolved_model
+
+Function chains: constructor:constructor
+
+Dangerous access: _formData.get
+
+Node indicators: process.mainModule
