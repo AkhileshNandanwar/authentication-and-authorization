@@ -75,6 +75,10 @@ Review package.json and lockfiles
 IOC-based request inspection
 
 Suspicious headers: Next-Action:*
+CVE - https://www.cve.org/CVERecord?id=CVE-2025-55182
+React Advisory - https://react.dev/blog/2025/12/03/critical-security-vulnerability-in-react-server-components 
+React2Shell - https://react2shell.com/ 
+
 
 Payload patterns: $@N, resolved_model
 
