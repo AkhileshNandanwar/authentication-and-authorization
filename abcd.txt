@@ -49,6 +49,79 @@ if this serialized data is not properly validated, it becomes a powerful attack 
 React2Shell exists in this exact layer, where the server assumes that the serialized data is always safe.
 Keep this architecture in mind, because in the next slide, we’ll see how attackers exploit this trust to break out of the React abstraction entirely.
 
+SLIDE 4
+What Is React2Shell?
+“Now that we understand how React Server Components and the Flight protocol work, let’s talk about the vulnerability itself — React2Shell.”
+React2Shell is a critical security vulnerability in React Server Components.
+At its core, this vulnerability exists because React unsafe¬ly handles serialized data that flows through the React Flight protocol.
+Instead of treating this data as untrusted input, React assumes it is safe internal data — and that assumption is what attackers exploit.
+________________________________________
+Where the Problem Starts
+React Flight is designed to efficiently send component instructions between the server and the client.
+To do this, it uses:
+•	Serialized data streams
+•	Special internal symbols
+•	Automatic deserialization logic
+This design improves performance — but it also introduces a new attack surface.
+In vulnerable versions, React does not strictly validate whether incoming Flight data actually came from React itself.
+________________________________________
+The Role of Special Symbols
+React Flight uses special markers such as:
+•	$Q for chunks
+•	$B for Blobs
+•	$S for symbols and references
+These markers were never meant to be controlled by users.
+However, due to insufficient validation, an attacker can:
+•	Inject these symbols into a request
+•	Trick React into processing them
+•	And make React execute internal handlers on attacker-supplied data
+This is where React2Shell begins.
+________________________________________
+Why This Is Not a Typical Bug
+This vulnerability is not caused by developer mistakes.
+•	Developers did not write insecure code
+•	No unsafe eval or exec calls are needed
+•	No authentication bypass is required
+The issue exists inside the framework itself.
+This makes React2Shell especially dangerous because:
+•	Even secure applications can be vulnerable
+•	The attack works regardless of business logic
+•	Many applications share the same risk
+________________________________________
+How an Attacker Exploits This
+An attacker sends a specially crafted HTTP request.
+You can think of this request as a malicious package sent to the server.
+React receives this package and:
+•	Deserializes it
+•	Interprets internal symbols
+•	Automatically invokes internal handlers
+Because React trusts this data, it:
+•	Reconstructs internal objects
+•	Resolves references dynamically
+•	And eventually executes attacker-controlled logic
+All of this happens before authentication, before authorization, and without user interaction.
+________________________________________
+What This Leads To
+The final result is Remote Code Execution.
+This means the attacker can:
+•	Execute operating system commands
+•	Read sensitive files
+•	Steal secrets and environment variables
+•	Install malware
+•	Fully compromise the server
+At this point, the attacker has the same permissions as the Node.js server process.
+________________________________________
+CVE and Severity
+This vulnerability is officially tracked as:
+CVE-2025-55182
+It has a CVSS severity score of 10.0, which is the maximum possible score.
+A score this high indicates:
+•	No authentication required
+•	Remote exploitation
+•	Complete system compromise
+•	High impact across many applications
+
+
 
 The core vulnerability
 “Now let’s break down the core vulnerability behind React2Shell: unsafe deserialization.
