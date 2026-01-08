@@ -243,6 +243,21 @@ With the same level of access, an attacker could:
 •	Take full control of the server
 Anything the Node.js process has permission to do, the attacker can now do as well.
 
+$B tells React to use a special internal handler meant only for trusted data.
+
+_formData.get is quietly replaced so that instead of fetching data, it can create and run functions.
+
+_prefix contains attacker-controlled instructions, not normal data.
+
+_formData.get should normally be a safe data-fetching function, but in this attack it is replaced with the JavaScript Function constructor.
+The attacker replaces _formData.get with a function-creating mechanism.
+
+This means when React thinks it is “getting data”, it is actually:
+
+Creating executable code
+
+And preparing it to run
+
 
 
 
