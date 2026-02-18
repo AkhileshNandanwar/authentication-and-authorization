@@ -259,7 +259,7 @@ Creating executable code
 And preparing it to run
 NHYbt2X23H49m'fF\,C7eoZ"97+Eo25C
 
-
+I am doing SAST analysis. I am using fortify for it. I have given demo FPR for this. I will give you the function which is showing vulnerability. There are four categories into which we have to classify them. they are: Not an issue, Reliability issue, Bad practice, suspicious and exploitable. Say me if it is actually vulnerable or suspicious(the function is present but not sure where it is used or not used) or not exploitable or it is a bad practice(not an issue but should not be advised) or a reliability issue. find under which category it falls. if any additional details needed to confirm the vulnerability ask me what to find in the code. Explain the vulnerability and the mitigation in short for me to understand.
 
 
 
